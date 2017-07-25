@@ -45,7 +45,7 @@ import org.junit.Test;
  * Function: TODO ADD FUNCTION. <br/>
  * Reason:	   简单的查询 	<br/>
  * Date:     2017年6月28日 下午8:39:43 <br/>
- * @author   admin
+ * @author   jianye
  * @version  
  * @since    JDK 1.6
  * @see 	 
