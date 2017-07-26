@@ -12,6 +12,7 @@ package com.jianye.elastic.elasticsearch.retrive;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequestBuilder;
+import org.elasticsearch.action.search.SearchType;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
@@ -28,8 +29,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 /**
- * ClassName:EsRetriveTest2 <br/>
- * Function: TODO ADD FUNCTION. <br/>
+ * ClassName:EsRetriveTest3 <br/>
+ * Function: 主要应用Scroll查询验证. <br/>
  * Reason:	 TODO ADD REASON. <br/>
  * Date:     2017年6月30日 下午3:17:45 <br/>
  * @author   jianye
@@ -54,7 +55,7 @@ public class EsRetriveTest3 {
 		System.out.println("ElasticSearch open");
 	}
 	
-	@Test
+//	@Test
 	public void scrollTest() {
 		
 		// 滚动查询
@@ -89,7 +90,84 @@ public class EsRetriveTest3 {
 		// 更新scrollId
 		scrollId = scrollResponse.getScrollId();
 		System.out.println(scrollResponse.getHits().getHits().length);
-		System.out.println();
+	}
+	
+//	@Test
+	public void scrollScanTest() {
+		
+		MatchAllQueryBuilder matchQuery = QueryBuilders.matchAllQuery();
+		
+		SearchRequestBuilder searchBuilder = client.prepareSearch("yyy").setTypes("basic_data")
+			.setSearchType(SearchType.SCAN).setQuery(matchQuery)
+			.setScroll(TimeValue.timeValueMinutes(1))
+			.setSize(10);
+		// 打印query dsl
+		System.out.println(searchBuilder);
+		// 响应结果
+		SearchResponse response = searchBuilder.execute().actionGet();
+		// 获取ScrollId
+		String scrollId = response.getScrollId();
+		long totalCount = response.getHits().getTotalHits();
+		long firstCount = response.getHits().getHits().length;
+		System.out.println( totalCount + " " + firstCount + " " + scrollId);
+		
+		// 单独再次进行遍历
+		SearchScrollRequestBuilder scrollBuilder = client.prepareSearchScroll(scrollId)
+				.setScroll(TimeValue.timeValueMinutes(1));
+		System.out.println(scrollBuilder.toString());
+		SearchResponse scrollResponse = scrollBuilder.execute().actionGet();
+		SearchHit[] hits = scrollResponse.getHits().getHits();
+		// 查询的数据量
+		System.out.println(hits.length);
+		for (SearchHit hit : hits) {
+			System.out.println(hit.getSourceAsString());
+		}
+		// 二次更新scrollId
+		scrollId = scrollResponse.getScrollId();
+	}
+	
+	@Test
+	public void repeatScrollIdTest() {
+		
+		MatchAllQueryBuilder matchBuilder = QueryBuilders.matchAllQuery();
+		// 执行查询
+		SearchRequestBuilder searchBuilder = client.prepareSearch("yyy").setTypes("basic_data")
+				.setQuery(matchBuilder).setSearchType(SearchType.SCAN)
+				.setScroll(TimeValue.timeValueMillis(1))
+				.setSize(1);
+		System.out.println(searchBuilder.toString());
+		// 响应结果
+		SearchResponse response = searchBuilder.execute().actionGet();
+		// 响应结果
+		String scrollId = response.getScrollId();
+		long totalCount = response.getHits().getTotalHits();
+		long firstCount = response.getHits().getHits().length;
+		System.out.println(totalCount + " " + firstCount + " " + scrollId);
+		
+		// secondSearch
+		SearchResponse scrollResponse = client.prepareSearchScroll(scrollId)
+				.setScroll(TimeValue.timeValueMinutes(1)).execute()
+				.actionGet();
+		String newScrollId = scrollResponse.getScrollId();
+		long secondCount = scrollResponse.getHits().getHits().length;
+		System.out.println(secondCount + " " + newScrollId);
+		SearchHit[] hits = scrollResponse.getHits().getHits();
+		for (SearchHit hit : hits) {
+			System.out.println(hit.getSourceAsString());
+		}
+		System.out.println("--------------------------------------我是可爱的分割线---------------------------");
+		// thirdSearch 
+		scrollResponse = client.prepareSearchScroll(scrollId)
+			.setScroll(TimeValue.timeValueMinutes(1))
+			.execute().actionGet();
+		String thirdScrollId = scrollResponse.getScrollId();
+		long thirdCount = scrollResponse.getHits().getHits().length;
+		System.out.println(thirdCount + " " + thirdScrollId);
+		hits = scrollResponse.getHits().getHits();
+		for (SearchHit hit : hits) {
+			System.out.println(hit.getSourceAsString());
+		}
+		// 验证结果，就算是同一个scrollId
 	}
 	
 	@After
